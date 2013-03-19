@@ -84,7 +84,7 @@ class BucketBot(irc.IRCClient):
                 if verb == '<reply>':
                     self.msg(target, tidbit)
                 elif verb == '<action>':
-                    self.me(target, tidbit)
+                    self.ctcpMakeQuery(target, [('ACTION', tidbit)])
                 else:
                     self.msg(target, "{0} {1} {2}".format(fact, verb, tidbit))
             else:
