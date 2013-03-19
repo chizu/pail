@@ -54,7 +54,7 @@ class BucketBot(irc.IRCClient):
             fact, tidbit
         except NameError:
             # No idea what they are saying at us
-            self.failure(channel)
+            self.failure(channel, user)
         else: 
             print("Learning ~ {0} {1} {2}.".format(fact, verb, tidbit))
             q = dbpool.runOperation('INSERT INTO facts (fact, tidbit, verb, RE, protected, mood, chance) VALUES (%s, %s, %s, False, True, NULL, NULL)',
@@ -71,16 +71,17 @@ class BucketBot(irc.IRCClient):
             q.addErrback(explode)
 
 
-    def failure(self, target):
-        self.factoid(target, ["don't know"])
+    def failure(self, target, source):
+        self.factoid(target, source, ["don't know"])
 
 
-    def factoid(self, target, facts):
+    def factoid(self, target, source, facts):
         # Search using only lowercase
         facts = [x.lower() for x in facts]
         def say_factoid(result):
             if result:
                 fact_id, fact, verb, tidbit = result[0]
+                tidbit = tidbit.replace("$who", source)
                 if verb == '<reply>':
                     self.msg(target, tidbit)
                 elif verb == '<action>':
