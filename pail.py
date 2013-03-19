@@ -18,12 +18,23 @@ class BucketBot(irc.IRCClient):
 
 
     def signedOn(self):
+        self.inventory = ['an old shoe']
+        self.receive_item = re.compile(\
+            """^(?:
+                   puts \s (\S.+) \s in \s (the \s)? {0}\b
+                 | (?:gives|hands) \s {0} \s (\S.+)
+                 | (?:gives|hands) \s (\S.+) \s to {0}\b
+                )""".format(self.nickname), re.X | re.I)
         self.join(self.factory.channel)
         print("Signed on as {0}.".format(self.nickname))
 
 
     def joined(self, channel):
         print("Joined {0}.".format(channel))
+
+
+    def action(self, user, channel, action):
+        self.privmsg(user, channel, action)
 
 
     def privmsg(self, user, channel, msg):
@@ -33,13 +44,13 @@ class BucketBot(irc.IRCClient):
         if msg.startswith(self.nickname):
             self.addressed(user, channel, msg)
         elif channel == self.nickname:
+            # Private messages
             self.addressed(user, user, msg)
         else:
             if msg == "...":
                 self.factoid(channel, user, [msg])
             else:
-                if random.randrange(100) <= 5:
-                    self.factoid(channel, user, [msg])
+                self.command(channel, user, msg)
 
 
     def addressed(self, user, source, msg):
@@ -50,14 +61,13 @@ class BucketBot(irc.IRCClient):
             msg = msg[nick_length:].lstrip(',: ')
         for verb in [' is ', ' are ', ' <reply> ', ' <action> ']:
             if msg.find(verb) != -1:
-                print(msg, verb, msg.split(verb, 1))
                 fact, tidbit = msg.split(verb, 1)
                 break
         try:
             fact, tidbit
         except NameError:
             # Not learning
-            self.factoid(source, user, [msg], addressed=True)
+            self.command(source, user, msg, addressed=True)
         else: 
             print("Learning ~ {0} {1} {2}.".format(fact, verb, tidbit))
             q = dbpool.runOperation('INSERT INTO facts (fact, tidbit, verb, RE, protected, mood, chance) VALUES (%s, %s, %s, False, True, NULL, NULL)',
@@ -78,13 +88,40 @@ class BucketBot(irc.IRCClient):
         self.factoid(target, source, ["don't know"])
 
 
-    def factoid(self, target, source, facts, addressed=False):
+    def command(self, target, source, msg, addressed=False):
+        receive_item = self.receive_item.match(msg)
+        if addressed and msg == "inventory":
+            self.factoid(target, source, ["list items"])
+        elif receive_item:
+            # If any group matched, that's the item
+            item = [x for x in receive_item.groups() if x != None]
+            if item[0]:
+                item = item[0]
+                if item in self.inventory:
+                    self.factoid(target, source, ['duplicate item'], item=item)
+                elif len(self.inventory) > 8:
+                    self.inventory.insert(0, item)
+                    self.factoid(target, source, ['pickup full'], item=item)
+                else:
+                    self.inventory.insert(0, item)
+                    self.factoid(target, source, ['takes item'], item=item)
+        elif addressed or random.randrange(100) <= 5:
+            self.factoid(target, source, [msg])
+
+
+    def factoid(self, target, source, facts, addressed=False, item=None):
         # Search using only lowercase
         facts = [x.lower() for x in facts]
         def say_factoid(result):
             if result:
                 fact_id, fact, verb, tidbit = result[0]
                 tidbit = tidbit.replace("$who", source)
+                tidbit = tidbit.replace("$inventory",
+                                        ", ".join(self.inventory))
+                if item:
+                    tidbit = tidbit.replace("$item", item)
+                if tidbit.find("$giveitem") != -1:
+                    tidbit = tidbit.replace("$giveitem", self.inventory.pop())
                 if verb == '<reply>':
                     self.msg(target, tidbit)
                 elif verb == '<action>':
