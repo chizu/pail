@@ -36,7 +36,7 @@ class BucketBot(irc.IRCClient):
             self.addressed(user, user, msg)
         else:
             if msg == "...":
-                self.factoid(channel, user, [])
+                self.factoid(channel, user, [msg])
             else:
                 if random.randrange(100) <= 5:
                     self.factoid(channel, user, [msg])
