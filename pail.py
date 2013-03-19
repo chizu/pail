@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 """Python IRC bot based loosely on XKCD's Bucket"""
-import sys, re, random
+import sys
+import re
+import random
 
 from twisted.enterprise import adbapi 
 from twisted.internet import reactor, protocol
@@ -41,16 +43,17 @@ class BucketBot(irc.IRCClient):
             for word in words:
                 if len(word) > 5:
                     searches.append(word)
-            self.factoid(channel, random.choice(searches))
+            self.factoid(channel, [searches])
 
     def addressed(self, user, channel, msg):
         """Addressed by some user directly, by name or private message."""
         try:
-            fact, tidbit = msg.split('is', 1)
+            fact, tidbit = msg.split(' is ', 1)
+            fact, tidbit = msg.split(' are ', 1)
             print("Learning {0} <is> {1}.".format(fact, tidbit))
             q = dbpool.runOperation('INSERT INTO facts (fact, tidbit, verb, RE, protected, mood, chance) VALUES (%s, %s, %s, False, True, NULL, NULL)',
-                                    (fact.strip().lower(), 
-                                     tidbit.strip(), 
+                                    (fact, 
+                                     tidbit, 
                                      'is'))
             def success(success):
                 print(success)
@@ -62,20 +65,27 @@ class BucketBot(irc.IRCClient):
             q.addErrback(explode)
         except ValueError:
             # Probably didn't understand the new factoid
-            self.factoid(channel, "don't know")
+            self.factoid(channel, ["don't know"])
 
-    def factoid(self, target, fact):
+    def factoid(self, target, facts):
         def say_factoid(result):
             if result:
-                tidbit, verb = random.choice(result)
+                fact_id, fact, verb, tidbit = result[0]
                 if verb == '<reply>':
                     self.msg(target, tidbit)
                 else:
                     self.msg(target, "{0} {1} {2}".format(fact, verb, tidbit))
             else:
-                print("No matching factoid for {0}".format(fact))
-        q = dbpool.runQuery('SELECT tidbit, verb FROM facts WHERE fact = %s;',
-                            (fact.lower(),))
+                print("No matching factoid for {0}".format(facts))
+
+        BASE_SQL = "SELECT id, fact, verb, tidbit FROM facts "
+        WHERE_SQL = "WHERE fact = ANY(%s) "
+        RANDOM_SQL = "ORDER BY RANDOM() LIMIT 1;"
+        #RANDOM_SQL = "OFFSET random() * (SELECT count(*) FROM facts) LIMIT 1;"
+        SQL = BASE_SQL + WHERE_SQL + RANDOM_SQL
+        print(SQL)
+        q = dbpool.runQuery(SQL,
+                            (facts,))
         q.addCallback(say_factoid)
             
 
