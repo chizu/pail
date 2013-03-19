@@ -45,14 +45,22 @@ class BucketBot(irc.IRCClient):
 
     def addressed(self, user, channel, msg):
         """Addressed by some user directly, by name or private message."""
+        for verb in [' is ', ' are ', ' <reply> ', ' <action> ']:
+            if msg.find(verb) != -1:
+                print(msg, verb, msg.split(verb, 1))
+                fact, tidbit = msg.split(verb, 1)
+                break
         try:
-            fact, tidbit = msg.split(' is ', 1)
-            fact, tidbit = msg.split(' are ', 1)
-            print("Learning {0} <is> {1}.".format(fact, tidbit))
+            fact, tidbit
+        except NameError:
+            # No idea what they are saying at us
+            self.failure(channel)
+        else: 
+            print("Learning ~ {0} {1} {2}.".format(fact, verb, tidbit))
             q = dbpool.runOperation('INSERT INTO facts (fact, tidbit, verb, RE, protected, mood, chance) VALUES (%s, %s, %s, False, True, NULL, NULL)',
                                     (fact, 
                                      tidbit, 
-                                     'is'))
+                                     verb.strip()))
             def success(success):
                 print(success)
                 self.msg(channel, "Okay, {0}.".format(user))
@@ -61,9 +69,11 @@ class BucketBot(irc.IRCClient):
                 self.msg(channel, "I'm sorry, {0}, something has gone terrible wrong and I can't find my mind.".format(user))
             q.addCallback(success)
             q.addErrback(explode)
-        except ValueError:
-            # Probably didn't understand the new factoid
-            self.factoid(channel, ["don't know"])
+
+
+    def failure(self, target):
+        self.factoid(target, ["don't know"])
+
 
     def factoid(self, target, facts):
         def say_factoid(result):
