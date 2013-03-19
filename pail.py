@@ -90,8 +90,10 @@ class BucketBot(irc.IRCClient):
         WHERE_SQL = "WHERE fact = ANY(%s) "
         RANDOM_SQL = "ORDER BY RANDOM() LIMIT 1;"
         #RANDOM_SQL = "OFFSET random() * (SELECT count(*) FROM facts) LIMIT 1;"
-        SQL = BASE_SQL + WHERE_SQL + RANDOM_SQL
-        print(SQL)
+        if facts:
+            SQL = BASE_SQL + WHERE_SQL + RANDOM_SQL
+        else:
+            SQL = BASE_SQL + RANDOM_SQL
         q = dbpool.runQuery(SQL,
                             (facts,))
         q.addCallback(say_factoid)
