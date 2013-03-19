@@ -40,7 +40,8 @@ class BucketBot(irc.IRCClient):
             if msg == "...":
                 self.factoid(channel, user, [])
             else:
-                self.factoid(channel, user, [msg])
+                if random.randrange(100) <= 5:
+                    self.factoid(channel, user, [msg])
 
 
     def addressed(self, user, channel, msg):
@@ -53,8 +54,8 @@ class BucketBot(irc.IRCClient):
         try:
             fact, tidbit
         except NameError:
-            # No idea what they are saying at us
-            self.failure(channel, user)
+            # Not learning
+            self.factoid(channel, user, [msg], addressed=True)
         else: 
             print("Learning ~ {0} {1} {2}.".format(fact, verb, tidbit))
             q = dbpool.runOperation('INSERT INTO facts (fact, tidbit, verb, RE, protected, mood, chance) VALUES (%s, %s, %s, False, True, NULL, NULL)',
@@ -75,7 +76,7 @@ class BucketBot(irc.IRCClient):
         self.factoid(target, source, ["don't know"])
 
 
-    def factoid(self, target, source, facts):
+    def factoid(self, target, source, facts, addressed=False):
         # Search using only lowercase
         facts = [x.lower() for x in facts]
         def say_factoid(result):
@@ -90,6 +91,8 @@ class BucketBot(irc.IRCClient):
                     self.msg(target, "{0} {1} {2}".format(fact, verb, tidbit))
             else:
                 print("No matching factoid for {0}".format(facts))
+                if addressed:
+                    self.failure(target, source)
 
         BASE_SQL = "SELECT id, fact, verb, tidbit FROM facts "
         WHERE_SQL = "WHERE lower(fact) = ANY(%s) "
