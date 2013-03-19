@@ -37,13 +37,11 @@ class BucketBot(irc.IRCClient):
                 msg = msg[nick_length:].lstrip(',: ')
             self.addressed(user, channel, msg)
         else:
-            # Split the message up and find some facts
-            words = msg.split()
-            searches = []
-            for word in words:
-                if len(word) > 5:
-                    searches.append(word)
-            self.factoid(channel, [searches])
+            if len(msg) > 4:
+                self.factoid(channel, [msg])
+            elif msg == "...":
+                self.factoid(channel, [])
+
 
     def addressed(self, user, channel, msg):
         """Addressed by some user directly, by name or private message."""
