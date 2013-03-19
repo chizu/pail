@@ -37,10 +37,10 @@ class BucketBot(irc.IRCClient):
                 msg = msg[nick_length:].lstrip(',: ')
             self.addressed(user, channel, msg)
         else:
-            if len(msg) > 4:
-                self.factoid(channel, [msg])
-            elif msg == "...":
-                self.factoid(channel, [])
+            if msg == "...":
+                self.factoid(channel, user, [])
+            else:
+                self.factoid(channel, user, [msg])
 
 
     def addressed(self, user, channel, msg):
