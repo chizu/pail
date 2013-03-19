@@ -76,18 +76,22 @@ class BucketBot(irc.IRCClient):
 
 
     def factoid(self, target, facts):
+        # Search using only lowercase
+        facts = [x.lower() for x in facts]
         def say_factoid(result):
             if result:
                 fact_id, fact, verb, tidbit = result[0]
                 if verb == '<reply>':
                     self.msg(target, tidbit)
+                elif verb == '<action>':
+                    self.me(target, tidbit)
                 else:
                     self.msg(target, "{0} {1} {2}".format(fact, verb, tidbit))
             else:
                 print("No matching factoid for {0}".format(facts))
 
         BASE_SQL = "SELECT id, fact, verb, tidbit FROM facts "
-        WHERE_SQL = "WHERE fact = ANY(%s) "
+        WHERE_SQL = "WHERE lower(fact) = ANY(%s) "
         RANDOM_SQL = "ORDER BY RANDOM() LIMIT 1;"
         #RANDOM_SQL = "OFFSET random() * (SELECT count(*) FROM facts) LIMIT 1;"
         if facts:
