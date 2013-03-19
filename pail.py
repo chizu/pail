@@ -30,12 +30,10 @@ class BucketBot(irc.IRCClient):
         user = user.split('!')[0]
         print("{0} <{1}> {2}".format(channel, user, msg))
 
-        if msg.startswith(self.nickname) or channel == self.nickname:
-            nick_length = len(self.nickname)
-            if msg.find(self.nickname) == 0:
-                # Strip off our nickname from the beginning
-                msg = msg[nick_length:].lstrip(',: ')
+        if msg.startswith(self.nickname):
             self.addressed(user, channel, msg)
+        elif channel == self.nickname:
+            self.addressed(user, user, msg)
         else:
             if msg == "...":
                 self.factoid(channel, user, [])
@@ -44,8 +42,12 @@ class BucketBot(irc.IRCClient):
                     self.factoid(channel, user, [msg])
 
 
-    def addressed(self, user, channel, msg):
+    def addressed(self, user, source, msg):
         """Addressed by some user directly, by name or private message."""
+        nick_length = len(self.nickname)
+        if msg.find(self.nickname) == 0:
+            # Strip off our nickname from the beginning
+            msg = msg[nick_length:].lstrip(',: ')
         for verb in [' is ', ' are ', ' <reply> ', ' <action> ']:
             if msg.find(verb) != -1:
                 print(msg, verb, msg.split(verb, 1))
@@ -55,7 +57,7 @@ class BucketBot(irc.IRCClient):
             fact, tidbit
         except NameError:
             # Not learning
-            self.factoid(channel, user, [msg], addressed=True)
+            self.factoid(source, user, [msg], addressed=True)
         else: 
             print("Learning ~ {0} {1} {2}.".format(fact, verb, tidbit))
             q = dbpool.runOperation('INSERT INTO facts (fact, tidbit, verb, RE, protected, mood, chance) VALUES (%s, %s, %s, False, True, NULL, NULL)',
@@ -64,10 +66,10 @@ class BucketBot(irc.IRCClient):
                                      verb.strip()))
             def success(success):
                 print(success)
-                self.msg(channel, "Okay, {0}.".format(user))
+                self.msg(source, "Okay, {0}.".format(user))
             def explode(failure):
                 print(failure)
-                self.msg(channel, "I'm sorry, {0}, something has gone terrible wrong and I can't find my mind.".format(user))
+                self.msg(source, "I'm sorry, {0}, something has gone terrible wrong and I can't find my mind.".format(user))
             q.addCallback(success)
             q.addErrback(explode)
 
