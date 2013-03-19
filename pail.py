@@ -121,7 +121,12 @@ class BucketBot(irc.IRCClient):
                 if item:
                     tidbit = tidbit.replace("$item", item)
                 if tidbit.find("$giveitem") != -1:
-                    tidbit = tidbit.replace("$giveitem", self.inventory.pop())
+                    if len(self.inventory) > 0:
+                        tidbit = tidbit.replace("$giveitem",
+                                                self.inventory.pop())
+                    else:
+                        return self.factoid(target, source, 
+                                            ["nothing to give"])
                 if verb == '<reply>':
                     self.msg(target, tidbit)
                 elif verb == '<action>':
